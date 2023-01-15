@@ -22,7 +22,7 @@
 
     <groupId>org.apache.skywalking</groupId>
     <artifactId>apm</artifactId>
-    <version>9.3.0-SNAPSHOT</version>
+    <version>9.4.0-SNAPSHOT</version>
 
     <parent>
         <groupId>org.apache</groupId>
@@ -156,7 +156,7 @@
 
         <!-- core lib dependency -->
         <grpc.version>1.49.0</grpc.version>
-        <netty.version>4.1.81.Final</netty.version>
+        <netty.version>4.1.86.Final</netty.version>
         <netty-tcnative-boringssl-static.version>2.0.52.Final</netty-tcnative-boringssl-static.version>
         <gson.version>2.9.0</gson.version>
         <os-maven-plugin.version>1.6.2</os-maven-plugin.version>
@@ -310,6 +310,13 @@
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <configuration>
                         <skip>${skipITs}</skip>
+                        <!--
+                            Exclude time-consuming tests and run those tests separately in skywalking.yaml.
+                            TCIT means Time Consuming Integration Test.
+                        -->
+                        <excludes>
+                            <exclude>**/TCIT*.java</exclude>
+                        </excludes>
                     </configuration>
                     <executions>
                         <execution>
@@ -339,6 +346,7 @@
                         <skip>${skipUTs}</skip>
                         <excludes>
                             <exclude>IT*.class</exclude>
+                            <exclude>ShardingIntegrationTest.class</exclude>
                         </excludes>
                     </configuration>
                 </plugin>

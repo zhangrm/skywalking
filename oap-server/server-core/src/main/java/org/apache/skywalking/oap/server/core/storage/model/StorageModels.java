@@ -35,7 +35,6 @@ import org.apache.skywalking.oap.server.core.storage.annotation.SQLDatabase;
 import org.apache.skywalking.oap.server.core.storage.annotation.Storage;
 import org.apache.skywalking.oap.server.core.storage.annotation.SuperDataset;
 import org.apache.skywalking.oap.server.core.storage.annotation.ValueColumnMetadata;
-import org.apache.skywalking.oap.server.library.util.StringUtil;
 
 /**
  * StorageModels manages all models detected by the core.
@@ -60,6 +59,7 @@ public class StorageModels implements IModelManager, ModelCreator, ModelManipula
         List<ModelColumn> modelColumns = new ArrayList<>();
         ShardingKeyChecker checker = new ShardingKeyChecker();
         SQLDatabaseModelExtension sqlDBModelExtension = new SQLDatabaseModelExtension();
+        BanyanDBModelExtension banyanDBModelExtension = new BanyanDBModelExtension();
         retrieval(aClass, storage.getModelName(), modelColumns, scopeId, checker, sqlDBModelExtension, record);
         // Add extra column for additional entities
         if (aClass.isAnnotationPresent(SQLDatabase.ExtraColumn4AdditionalEntity.class)
@@ -87,6 +87,16 @@ public class StorageModels implements IModelManager, ModelCreator, ModelManipula
                 }
             });
         }
+        //Add timestampColumn for BanyanDB
+        if (aClass.isAnnotationPresent(BanyanDB.TimestampColumn.class)) {
+            String timestampColumn = aClass.getAnnotation(BanyanDB.TimestampColumn.class).value();
+            banyanDBModelExtension.setTimestampColumn(timestampColumn);
+        }
+
+        if (aClass.isAnnotationPresent(BanyanDB.StoreIDAsTag.class)) {
+            banyanDBModelExtension.setStoreIDTag(true);
+        }
+
         checker.check(storage.getModelName());
 
         Model model = new Model(
@@ -98,7 +108,8 @@ public class StorageModels implements IModelManager, ModelCreator, ModelManipula
             isSuperDatasetModel(aClass),
             aClass,
             storage.isTimeRelativeID(),
-            sqlDBModelExtension
+            sqlDBModelExtension,
+            banyanDBModelExtension
         );
 
         this.followColumnNameRules(model);
@@ -146,7 +157,8 @@ public class StorageModels implements IModelManager, ModelCreator, ModelManipula
             if (field.isAnnotationPresent(Column.class)) {
                 if (field.isAnnotationPresent(SQLDatabase.AdditionalEntity.class)) {
                     if (!record) {
-                        throw new IllegalStateException("Model [" + modelName + "] is not a Record, @SQLDatabase.AdditionalEntity only supports Record.");
+                        throw new IllegalStateException(
+                            "Model [" + modelName + "] is not a Record, @SQLDatabase.AdditionalEntity only supports Record.");
                     }
                 }
 
@@ -154,19 +166,6 @@ public class StorageModels implements IModelManager, ModelCreator, ModelManipula
                 // Use the column#length as the default column length, as read the system env as the override mechanism.
                 // Log the error but don't block the startup sequence.
                 int columnLength = column.length();
-                final String lengthEnvVariable = column.lengthEnvVariable();
-                if (StringUtil.isNotEmpty(lengthEnvVariable)) {
-                    final String envValue = System.getenv(lengthEnvVariable);
-                    if (StringUtil.isNotEmpty(envValue)) {
-                        try {
-                            columnLength = Integer.parseInt(envValue);
-                        } catch (NumberFormatException e) {
-                            log.error("Model [{}] Column [{}], illegal value {} of column length from system env [{}]",
-                                      modelName, column.columnName(), envValue, lengthEnvVariable
-                            );
-                        }
-                    }
-                }
 
                 // SQL Database extension
                 SQLDatabaseExtension sqlDatabaseExtension = new SQLDatabaseExtension();
@@ -191,25 +190,30 @@ public class StorageModels implements IModelManager, ModelCreator, ModelManipula
                 final ElasticSearch.MatchQuery elasticSearchAnalyzer = field.getAnnotation(
                     ElasticSearch.MatchQuery.class);
                 final ElasticSearch.Column elasticSearchColumn = field.getAnnotation(ElasticSearch.Column.class);
+                final ElasticSearch.Keyword keywordColumn = field.getAnnotation(ElasticSearch.Keyword.class);
                 ElasticSearchExtension elasticSearchExtension = new ElasticSearchExtension(
                     elasticSearchAnalyzer == null ? null : elasticSearchAnalyzer.analyzer(),
-                    elasticSearchColumn == null ? null : elasticSearchColumn.columnAlias()
+                    elasticSearchColumn == null ? null : elasticSearchColumn.columnAlias(),
+                    keywordColumn != null
                 );
 
                 // BanyanDB extension
-                final BanyanDB.ShardingKey banyanDBShardingKey = field.getAnnotation(
-                    BanyanDB.ShardingKey.class);
+                final BanyanDB.SeriesID banyanDBSeriesID = field.getAnnotation(
+                    BanyanDB.SeriesID.class);
                 final BanyanDB.GlobalIndex banyanDBGlobalIndex = field.getAnnotation(
                     BanyanDB.GlobalIndex.class);
                 final BanyanDB.NoIndexing banyanDBNoIndex = field.getAnnotation(
                     BanyanDB.NoIndexing.class);
                 final BanyanDB.IndexRule banyanDBIndexRule = field.getAnnotation(
-                        BanyanDB.IndexRule.class);
+                    BanyanDB.IndexRule.class);
+                final BanyanDB.MeasureField banyanDBMeasureField = field.getAnnotation(
+                        BanyanDB.MeasureField.class);
                 BanyanDBExtension banyanDBExtension = new BanyanDBExtension(
-                    banyanDBShardingKey == null ? -1 : banyanDBShardingKey.index(),
+                    banyanDBSeriesID == null ? -1 : banyanDBSeriesID.index(),
                     banyanDBGlobalIndex != null,
-                    banyanDBNoIndex == null && column.storageOnly(),
-                    banyanDBIndexRule == null ? BanyanDB.IndexRule.IndexType.INVERTED : banyanDBIndexRule.indexType()
+                    banyanDBNoIndex == null && !column.storageOnly(),
+                    banyanDBIndexRule == null ? BanyanDB.IndexRule.IndexType.INVERTED : banyanDBIndexRule.indexType(),
+                    banyanDBMeasureField != null
                 );
 
                 final ModelColumn modelColumn = new ModelColumn(
@@ -254,13 +258,14 @@ public class StorageModels implements IModelManager, ModelCreator, ModelManipula
             }
         }
 
-       // For the annotation need to be declared on the superclass, the other annotation should be declared on the subclass.
+        // For the annotation need to be declared on the superclass, the other annotation should be declared on the subclass.
         if (!sqlDBModelExtension.getSharding().isPresent() && clazz.isAnnotationPresent(SQLDatabase.Sharding.class)) {
             SQLDatabase.Sharding sharding = clazz.getAnnotation(SQLDatabase.Sharding.class);
             sqlDBModelExtension.setSharding(
-                Optional.of(new SQLDatabaseModelExtension.Sharding(sharding.shardingAlgorithm(),
-                                                                   sharding.dataSourceShardingColumn(),
-                                                                   sharding.tableShardingColumn()
+                Optional.of(new SQLDatabaseModelExtension.Sharding(
+                    sharding.shardingAlgorithm(),
+                    sharding.dataSourceShardingColumn(),
+                    sharding.tableShardingColumn()
                 )));
         }
 

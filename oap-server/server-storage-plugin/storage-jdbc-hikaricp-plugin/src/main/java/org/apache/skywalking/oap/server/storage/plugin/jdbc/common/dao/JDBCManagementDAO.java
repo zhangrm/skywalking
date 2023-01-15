@@ -42,13 +42,13 @@ public class JDBCManagementDAO extends JDBCSQLExecutor implements IManagementDAO
     @Override
     public void insert(Model model, ManagementData storageData) throws IOException {
         try (Connection connection = jdbcClient.getConnection()) {
-            final StorageData data = getByID(jdbcClient, model.getName(), storageData.id(), storageBuilder);
+            final StorageData data = getByID(jdbcClient, model.getName(), storageData.id().build(), storageBuilder);
             if (data != null) {
                 return;
             }
 
             SQLExecutor insertExecutor = getInsertExecutor(model.getName(), storageData, storageBuilder,
-                                                           new HashMapConverter.ToStorage());
+                                                           new HashMapConverter.ToStorage(), null);
             insertExecutor.invoke(connection);
         } catch (IOException | SQLException e) {
             throw new IOException(e.getMessage(), e);

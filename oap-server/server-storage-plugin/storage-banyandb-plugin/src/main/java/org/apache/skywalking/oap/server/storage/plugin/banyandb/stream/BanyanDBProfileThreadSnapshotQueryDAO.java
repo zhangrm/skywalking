@@ -19,6 +19,7 @@
 package org.apache.skywalking.oap.server.storage.plugin.banyandb.stream;
 
 import com.google.common.collect.ImmutableSet;
+import org.apache.skywalking.banyandb.v1.client.Element;
 import org.apache.skywalking.banyandb.v1.client.RowEntity;
 import org.apache.skywalking.banyandb.v1.client.StreamQuery;
 import org.apache.skywalking.banyandb.v1.client.StreamQueryResponse;
@@ -49,7 +50,6 @@ public class BanyanDBProfileThreadSnapshotQueryDAO extends AbstractBanyanDBDAO i
             ProfileThreadSnapshotRecord.SEGMENT_ID,
             ProfileThreadSnapshotRecord.DUMP_TIME,
             ProfileThreadSnapshotRecord.SEQUENCE,
-            ProfileThreadSnapshotRecord.TIME_BUCKET,
             ProfileThreadSnapshotRecord.STACK_BINARY);
 
     private static final Set<String> TAGS_TRACE = ImmutableSet.of(SegmentRecord.TRACE_ID,
@@ -67,7 +67,6 @@ public class BanyanDBProfileThreadSnapshotQueryDAO extends AbstractBanyanDBDAO i
             SegmentRecord.ENDPOINT_ID,
             SegmentRecord.LATENCY,
             SegmentRecord.START_TIME,
-            SegmentRecord.TIME_BUCKET,
             SegmentRecord.DATA_BINARY);
 
     private final int querySegmentMaxSize;
@@ -122,7 +121,7 @@ public class BanyanDBProfileThreadSnapshotQueryDAO extends AbstractBanyanDBDAO i
                 });
 
         List<BasicTrace> basicTraces = new ArrayList<>();
-        for (final RowEntity row : segmentRecordResp.getElements()) {
+        for (final Element row : segmentRecordResp.getElements()) {
             BasicTrace basicTrace = new BasicTrace();
 
             basicTrace.setSegmentId(row.getId());

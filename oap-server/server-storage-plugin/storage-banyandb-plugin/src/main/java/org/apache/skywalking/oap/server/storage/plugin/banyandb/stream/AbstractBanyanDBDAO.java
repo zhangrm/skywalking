@@ -29,7 +29,6 @@ import org.apache.skywalking.banyandb.v1.client.StreamQuery;
 import org.apache.skywalking.banyandb.v1.client.StreamQueryResponse;
 import org.apache.skywalking.banyandb.v1.client.TimestampRange;
 import org.apache.skywalking.oap.server.core.analysis.DownSampling;
-import org.apache.skywalking.oap.server.core.analysis.metrics.Metrics;
 import org.apache.skywalking.oap.server.core.storage.AbstractDAO;
 import org.apache.skywalking.oap.server.storage.plugin.banyandb.BanyanDBStorageClient;
 import org.apache.skywalking.oap.server.storage.plugin.banyandb.MetadataRegistry;
@@ -134,12 +133,16 @@ public abstract class AbstractBanyanDBDAO extends AbstractDAO<BanyanDBStorageCli
             return PairQueryCondition.StringQueryCondition.eq(name, value);
         }
 
-        protected PairQueryCondition<Long> ne(String name, long value) {
-            return PairQueryCondition.LongQueryCondition.ne(name, value);
+        protected PairQueryCondition<List<String>> in(String name, List<String> values) {
+            return PairQueryCondition.StringArrayQueryCondition.in(name, values);
         }
 
-        protected PairQueryCondition<String> id(String value) {
-            return PairQueryCondition.IDQueryCondition.eq(Metrics.ID, value);
+        protected PairQueryCondition<List<String>> notIn(String name, List<String> values) {
+            return PairQueryCondition.StringArrayQueryCondition.in(name, values);
+        }
+
+        protected PairQueryCondition<Long> ne(String name, long value) {
+            return PairQueryCondition.LongQueryCondition.ne(name, value);
         }
 
         protected AbstractQuery.OrderBy desc(String name) {

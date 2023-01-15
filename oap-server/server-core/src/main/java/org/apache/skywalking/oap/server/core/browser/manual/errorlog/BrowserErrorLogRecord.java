@@ -24,6 +24,7 @@ import org.apache.skywalking.oap.server.core.analysis.record.Record;
 import org.apache.skywalking.oap.server.core.analysis.worker.RecordStreamProcessor;
 import org.apache.skywalking.oap.server.core.source.DefaultScopeDefine;
 import org.apache.skywalking.oap.server.core.storage.ShardingAlgorithm;
+import org.apache.skywalking.oap.server.core.storage.StorageID;
 import org.apache.skywalking.oap.server.core.storage.annotation.BanyanDB;
 import org.apache.skywalking.oap.server.core.storage.annotation.Column;
 import org.apache.skywalking.oap.server.core.storage.annotation.SQLDatabase;
@@ -38,6 +39,7 @@ import static org.apache.skywalking.oap.server.core.analysis.record.Record.TIME_
 @SuperDataset
 @Stream(name = BrowserErrorLogRecord.INDEX_NAME, scopeId = DefaultScopeDefine.BROWSER_ERROR_LOG, builder = BrowserErrorLogRecord.Builder.class, processor = RecordStreamProcessor.class)
 @SQLDatabase.Sharding(shardingAlgorithm = ShardingAlgorithm.TIME_SEC_RANGE_SHARDING_ALGORITHM, dataSourceShardingColumn = SERVICE_ID, tableShardingColumn = TIME_BUCKET)
+@BanyanDB.TimestampColumn(BrowserErrorLogRecord.TIMESTAMP)
 public class BrowserErrorLogRecord extends Record {
     public static final String INDEX_NAME = "browser_error_log";
     public static final String UNIQUE_ID = "unique_id";
@@ -49,8 +51,8 @@ public class BrowserErrorLogRecord extends Record {
     public static final String DATA_BINARY = "data_binary";
 
     @Override
-    public String id() {
-        return uniqueId;
+    public StorageID id() {
+        return new StorageID().append(UNIQUE_ID, uniqueId);
     }
 
     @Setter
@@ -61,7 +63,7 @@ public class BrowserErrorLogRecord extends Record {
     @Setter
     @Getter
     @Column(columnName = SERVICE_ID)
-    @BanyanDB.ShardingKey(index = 0)
+    @BanyanDB.SeriesID(index = 0)
     private String serviceId;
 
     @Setter

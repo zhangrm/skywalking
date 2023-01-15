@@ -30,7 +30,6 @@ import java.util.stream.IntStream;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.skywalking.oap.server.core.Const;
 import org.apache.skywalking.oap.server.core.UnexpectedException;
 import org.apache.skywalking.oap.server.core.analysis.meter.Meter;
 import org.apache.skywalking.oap.server.core.analysis.meter.MeterEntity;
@@ -43,6 +42,7 @@ import org.apache.skywalking.oap.server.core.analysis.metrics.Metrics;
 import org.apache.skywalking.oap.server.core.analysis.metrics.MultiIntValuesHolder;
 import org.apache.skywalking.oap.server.core.query.type.Bucket;
 import org.apache.skywalking.oap.server.core.remote.grpc.proto.RemoteData;
+import org.apache.skywalking.oap.server.core.storage.StorageID;
 import org.apache.skywalking.oap.server.core.storage.annotation.BanyanDB;
 import org.apache.skywalking.oap.server.core.storage.annotation.Column;
 import org.apache.skywalking.oap.server.core.storage.annotation.ElasticSearch;
@@ -77,26 +77,30 @@ public abstract class AvgHistogramPercentileFunction extends Meter implements Ac
     @Setter
     @Getter
     @Column(columnName = ENTITY_ID)
-    @BanyanDB.ShardingKey(index = 0)
+    @BanyanDB.SeriesID(index = 0)
     private String entityId;
     @Getter
     @Setter
     @Column(columnName = VALUE, dataType = Column.ValueDataType.LABELED_VALUE, storageOnly = true)
     @ElasticSearch.Column(columnAlias = "datatable_value")
+    @BanyanDB.MeasureField
     private DataTable percentileValues = new DataTable(10);
     @Getter
     @Setter
     @Column(columnName = SUMMATION, storageOnly = true)
     @ElasticSearch.Column(columnAlias = "datatable_summation")
+    @BanyanDB.MeasureField
     protected DataTable summation = new DataTable(30);
     @Getter
     @Setter
     @Column(columnName = COUNT, storageOnly = true)
     @ElasticSearch.Column(columnAlias = "datatable_count")
+    @BanyanDB.MeasureField
     protected DataTable count = new DataTable(30);
     @Getter
     @Setter
     @Column(columnName = DATASET, storageOnly = true)
+    @BanyanDB.MeasureField
     private DataTable dataset = new DataTable(30);
     /**
      * Rank
@@ -325,8 +329,10 @@ public abstract class AvgHistogramPercentileFunction extends Meter implements Ac
     }
 
     @Override
-    protected String id0() {
-        return getTimeBucket() + Const.ID_CONNECTOR + entityId;
+    protected StorageID id0() {
+        return new StorageID()
+            .append(TIME_BUCKET, getTimeBucket())
+            .append(ENTITY_ID, getEntityId());
     }
 
     @Override

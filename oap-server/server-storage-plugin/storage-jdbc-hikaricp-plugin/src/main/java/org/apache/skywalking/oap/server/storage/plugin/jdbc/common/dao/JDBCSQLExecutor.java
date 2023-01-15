@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.skywalking.oap.server.core.UnexpectedException;
+import org.apache.skywalking.oap.server.core.storage.SessionCacheCallback;
 import org.apache.skywalking.oap.server.core.storage.StorageData;
 import org.apache.skywalking.oap.server.core.storage.model.Model;
 import org.apache.skywalking.oap.server.core.storage.model.ModelColumn;
@@ -116,7 +117,8 @@ public class JDBCSQLExecutor {
 
     protected <T extends StorageData> SQLExecutor getInsertExecutor(String modelName, T metrics,
                                                                     StorageBuilder<T> storageBuilder,
-                                                                    Convert2Storage<Map<String, Object>> converter) throws IOException {
+                                                                    Convert2Storage<Map<String, Object>> converter,
+                                                                    SessionCacheCallback callback) throws IOException {
         Model model = TableMetaInfo.get(modelName);
         storageBuilder.entity2Storage(metrics, converter);
         Map<String, Object> objectMap = converter.obtain();
@@ -126,7 +128,7 @@ public class JDBCSQLExecutor {
             mainEntity.put(column.getColumnName().getName(), objectMap.get(column.getColumnName().getName()));
         });
         SQLExecutor sqlExecutor = buildInsertExecutor(
-            modelName, model.getColumns(), metrics, mainEntity);
+            modelName, model.getColumns(), metrics, mainEntity, callback);
         //build additional table sql
         for (SQLDatabaseModelExtension.AdditionalTable additionalTable : model.getSqlDBModelExtension()
                                                                               .getAdditionalTables()
@@ -137,7 +139,7 @@ public class JDBCSQLExecutor {
             });
 
             List<SQLExecutor> additionalSQLExecutors = buildAdditionalInsertExecutor(
-                additionalTable.getName(), additionalTable.getColumns(), metrics, additionalEntity
+                additionalTable.getName(), additionalTable.getColumns(), metrics, additionalEntity, callback
             );
             sqlExecutor.appendAdditionalSQLs(additionalSQLExecutors);
         }
@@ -147,11 +149,12 @@ public class JDBCSQLExecutor {
     private <T extends StorageData> SQLExecutor buildInsertExecutor(String tableName,
                                                                     List<ModelColumn> columns,
                                                                     T metrics,
-                                                                    Map<String, Object> objectMap) throws IOException {
+                                                                    Map<String, Object> objectMap,
+                                                                    SessionCacheCallback onCompleteCallback) throws IOException {
         SQLBuilder sqlBuilder = new SQLBuilder("INSERT INTO " + tableName + " VALUES");
         List<Object> param = new ArrayList<>();
         sqlBuilder.append("(?,");
-        param.add(metrics.id());
+        param.add(metrics.id().build());
         for (int i = 0; i < columns.size(); i++) {
             ModelColumn column = columns.get(i);
             sqlBuilder.append("?");
@@ -169,19 +172,20 @@ public class JDBCSQLExecutor {
         }
         sqlBuilder.append(")");
 
-        return new SQLExecutor(sqlBuilder.toString(), param);
+        return new SQLExecutor(sqlBuilder.toString(), param, onCompleteCallback);
     }
 
     private <T extends StorageData> List<SQLExecutor> buildAdditionalInsertExecutor(String tableName,
                                                                                     List<ModelColumn> columns,
                                                                                     T metrics,
-                                                                                    Map<String, Object> objectMap) throws IOException {
+                                                                                    Map<String, Object> objectMap,
+                                                                                    SessionCacheCallback callback) throws IOException {
 
         List<SQLExecutor> sqlExecutors = new ArrayList<>();
         SQLBuilder sqlBuilder = new SQLBuilder("INSERT INTO " + tableName + " VALUES");
         List<Object> param = new ArrayList<>();
         sqlBuilder.append("(?,");
-        param.add(metrics.id());
+        param.add(metrics.id().build());
         int position = 0;
         List valueList = new ArrayList();
         for (int i = 0; i < columns.size(); i++) {
@@ -211,17 +215,18 @@ public class JDBCSQLExecutor {
             for (Object object : valueList) {
                 List<Object> paramCopy = new ArrayList<>(param);
                 paramCopy.set(position, object);
-                sqlExecutors.add(new SQLExecutor(sql, paramCopy));
+                sqlExecutors.add(new SQLExecutor(sql, paramCopy, callback));
             }
         } else {
-            sqlExecutors.add(new SQLExecutor(sql, param));
+            sqlExecutors.add(new SQLExecutor(sql, param, callback));
         }
 
         return sqlExecutors;
     }
 
     protected <T extends StorageData> SQLExecutor getUpdateExecutor(String modelName, T metrics,
-                                                                    StorageBuilder<T> storageBuilder) throws IOException {
+                                                                    StorageBuilder<T> storageBuilder,
+                                                                    SessionCacheCallback callback) throws IOException {
         final HashMapConverter.ToStorage toStorage = new HashMapConverter.ToStorage();
         storageBuilder.entity2Storage(metrics, toStorage);
         Map<String, Object> objectMap = toStorage.obtain();
@@ -236,7 +241,8 @@ public class JDBCSQLExecutor {
             if (model.getSqlDBModelExtension().isShardingTable()) {
                 SQLDatabaseModelExtension.Sharding sharding = model.getSqlDBModelExtension().getSharding().orElseThrow(
                     () -> new UnexpectedException("Sharding should not be empty."));
-                if (columnName.equals(sharding.getDataSourceShardingColumn()) || columnName.equals(sharding.getTableShardingColumn())) {
+                if (columnName.equals(sharding.getDataSourceShardingColumn()) || columnName.equals(
+                    sharding.getTableShardingColumn())) {
                     continue;
                 }
             }
@@ -251,8 +257,8 @@ public class JDBCSQLExecutor {
         }
         sqlBuilder.replace(sqlBuilder.length() - 1, sqlBuilder.length(), "");
         sqlBuilder.append(" WHERE id = ?");
-        param.add(metrics.id());
+        param.add(metrics.id().build());
 
-        return new SQLExecutor(sqlBuilder.toString(), param);
+        return new SQLExecutor(sqlBuilder.toString(), param, callback);
     }
 }

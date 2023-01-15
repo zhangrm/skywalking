@@ -21,10 +21,14 @@ package org.apache.skywalking.oap.server.core.analysis.meter.function.sum;
 import com.google.common.base.Strings;
 import io.vavr.Tuple;
 import io.vavr.Tuple2;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collector;
+import java.util.stream.IntStream;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.skywalking.oap.server.core.Const;
 import org.apache.skywalking.oap.server.core.UnexpectedException;
 import org.apache.skywalking.oap.server.core.analysis.meter.Meter;
 import org.apache.skywalking.oap.server.core.analysis.meter.MeterEntity;
@@ -37,18 +41,13 @@ import org.apache.skywalking.oap.server.core.analysis.metrics.Metrics;
 import org.apache.skywalking.oap.server.core.analysis.metrics.MultiIntValuesHolder;
 import org.apache.skywalking.oap.server.core.query.type.Bucket;
 import org.apache.skywalking.oap.server.core.remote.grpc.proto.RemoteData;
+import org.apache.skywalking.oap.server.core.storage.StorageID;
 import org.apache.skywalking.oap.server.core.storage.annotation.BanyanDB;
 import org.apache.skywalking.oap.server.core.storage.annotation.Column;
 import org.apache.skywalking.oap.server.core.storage.annotation.ElasticSearch;
 import org.apache.skywalking.oap.server.core.storage.type.Convert2Entity;
 import org.apache.skywalking.oap.server.core.storage.type.Convert2Storage;
 import org.apache.skywalking.oap.server.core.storage.type.StorageBuilder;
-
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collector;
-import java.util.stream.IntStream;
 
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
@@ -68,17 +67,19 @@ public abstract class SumHistogramPercentileFunction extends Meter implements Ac
     @Setter
     @Getter
     @Column(columnName = ENTITY_ID)
-    @BanyanDB.ShardingKey(index = 0)
+    @BanyanDB.SeriesID(index = 0)
     private String entityId;
     @Getter
     @Setter
     @Column(columnName = VALUE, dataType = Column.ValueDataType.LABELED_VALUE, storageOnly = true)
     @ElasticSearch.Column(columnAlias = "datatable_value")
+    @BanyanDB.MeasureField
     private DataTable percentileValues = new DataTable(10);
     @Getter
     @Setter
     @Column(columnName = SUMMATION, storageOnly = true)
     @ElasticSearch.Column(columnAlias = "datatable_summation")
+    @BanyanDB.MeasureField
     protected DataTable summation = new DataTable(30);
     /**
      * Rank
@@ -86,6 +87,7 @@ public abstract class SumHistogramPercentileFunction extends Meter implements Ac
     @Getter
     @Setter
     @Column(columnName = RANKS, storageOnly = true)
+    @BanyanDB.MeasureField
     private IntList ranks = new IntList(10);
 
     private boolean isCalculated = false;
@@ -234,9 +236,9 @@ public abstract class SumHistogramPercentileFunction extends Meter implements Ac
         SumHistogramPercentileFunction metrics = (SumHistogramPercentileFunction) createNew();
         metrics.setEntityId(getEntityId());
         metrics.setTimeBucket(toTimeBucketInHour());
-        metrics.setSummation(getSummation());
-        metrics.setRanks(getRanks());
-        metrics.setPercentileValues(getPercentileValues());
+        metrics.getSummation().copyFrom(getSummation());
+        metrics.getRanks().copyFrom(getRanks());
+        metrics.getPercentileValues().copyFrom(getPercentileValues());
         return metrics;
     }
 
@@ -245,9 +247,9 @@ public abstract class SumHistogramPercentileFunction extends Meter implements Ac
         SumHistogramPercentileFunction metrics = (SumHistogramPercentileFunction) createNew();
         metrics.setEntityId(getEntityId());
         metrics.setTimeBucket(toTimeBucketInDay());
-        metrics.setSummation(getSummation());
-        metrics.setRanks(getRanks());
-        metrics.setPercentileValues(getPercentileValues());
+        metrics.getSummation().copyFrom(getSummation());
+        metrics.getRanks().copyFrom(getRanks());
+        metrics.getPercentileValues().copyFrom(getPercentileValues());
         return metrics;
     }
 
@@ -290,8 +292,10 @@ public abstract class SumHistogramPercentileFunction extends Meter implements Ac
     }
 
     @Override
-    protected String id0() {
-        return getTimeBucket() + Const.ID_CONNECTOR + entityId;
+    protected StorageID id0() {
+        return new StorageID()
+            .append(TIME_BUCKET, getTimeBucket())
+            .append(ENTITY_ID, getEntityId());
     }
 
     @Override

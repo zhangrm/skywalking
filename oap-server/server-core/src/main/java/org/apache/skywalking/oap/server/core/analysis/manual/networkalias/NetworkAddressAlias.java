@@ -29,6 +29,7 @@ import org.apache.skywalking.oap.server.core.analysis.worker.MetricsStreamProces
 import org.apache.skywalking.oap.server.core.remote.grpc.proto.RemoteData;
 import org.apache.skywalking.oap.server.core.source.ScopeDeclaration;
 import org.apache.skywalking.oap.server.core.storage.ShardingAlgorithm;
+import org.apache.skywalking.oap.server.core.storage.StorageID;
 import org.apache.skywalking.oap.server.core.storage.annotation.BanyanDB;
 import org.apache.skywalking.oap.server.core.storage.annotation.Column;
 import org.apache.skywalking.oap.server.core.storage.annotation.SQLDatabase;
@@ -56,7 +57,7 @@ public class NetworkAddressAlias extends Metrics {
     @Setter
     @Getter
     @Column(columnName = ADDRESS)
-    @BanyanDB.ShardingKey(index = 0)
+    @BanyanDB.SeriesID(index = 0)
     private String address;
     @Setter
     @Getter
@@ -87,8 +88,9 @@ public class NetworkAddressAlias extends Metrics {
     }
 
     @Override
-    protected String id0() {
-        return IDManager.NetworkAddressAliasDefine.buildId(address);
+    protected StorageID id0() {
+        return new StorageID().appendMutant(
+            new String[] {ADDRESS}, IDManager.NetworkAddressAliasDefine.buildId(address));
     }
 
     @Override

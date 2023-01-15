@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.skywalking.oap.server.core.analysis.metrics.Metrics;
 import org.apache.skywalking.oap.server.core.storage.IMetricsDAO;
+import org.apache.skywalking.oap.server.core.storage.SessionCacheCallback;
 import org.apache.skywalking.oap.server.core.storage.StorageData;
 import org.apache.skywalking.oap.server.core.storage.model.Model;
 import org.apache.skywalking.oap.server.core.storage.type.HashMapConverter;
@@ -39,7 +40,7 @@ public class JDBCMetricsDAO extends JDBCSQLExecutor implements IMetricsDAO {
 
     @Override
     public List<Metrics> multiGet(Model model, List<Metrics> metrics) throws IOException {
-        String[] ids = metrics.stream().map(Metrics::id).collect(Collectors.toList()).toArray(new String[] {});
+        String[] ids = metrics.stream().map(m -> m.id().build()).collect(Collectors.toList()).toArray(new String[] {});
         List<StorageData> storageDataList = getByIDs(jdbcClient, model.getName(), ids, storageBuilder);
         List<Metrics> result = new ArrayList<>(storageDataList.size());
         for (StorageData storageData : storageDataList) {
@@ -49,12 +50,12 @@ public class JDBCMetricsDAO extends JDBCSQLExecutor implements IMetricsDAO {
     }
 
     @Override
-    public SQLExecutor prepareBatchInsert(Model model, Metrics metrics) throws IOException {
-        return getInsertExecutor(model.getName(), metrics, storageBuilder, new HashMapConverter.ToStorage());
+    public SQLExecutor prepareBatchInsert(Model model, Metrics metrics, SessionCacheCallback callback) throws IOException {
+        return getInsertExecutor(model.getName(), metrics, storageBuilder, new HashMapConverter.ToStorage(), callback);
     }
 
     @Override
-    public SQLExecutor prepareBatchUpdate(Model model, Metrics metrics) throws IOException {
-        return getUpdateExecutor(model.getName(), metrics, storageBuilder);
+    public SQLExecutor prepareBatchUpdate(Model model, Metrics metrics, SessionCacheCallback callback) throws IOException {
+        return getUpdateExecutor(model.getName(), metrics, storageBuilder, callback);
     }
 }

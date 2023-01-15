@@ -38,13 +38,20 @@ public class JDBCSpanAttachedEventQueryDAO implements ISpanAttachedEventQueryDAO
     private final JDBCHikariCPClient jdbcClient;
 
     @Override
-    public List<SpanAttachedEventRecord> querySpanAttachedEvents(SpanAttachedEventTraceType type, String traceId) throws IOException {
+    public List<SpanAttachedEventRecord> querySpanAttachedEvents(SpanAttachedEventTraceType type, List<String> traceIds) throws IOException {
         StringBuilder sql = new StringBuilder("select * from " + SpanAttachedEventRecord.INDEX_NAME + " where ");
-        List<Object> parameters = new ArrayList<>(2);
+        List<Object> parameters = new ArrayList<>(traceIds.size() + 1);
 
-        sql.append(" ").append(SpanAttachedEventRecord.TRACE_ID).append(" = ?");
-        parameters.add(traceId);
-        sql.append(" and ").append(SpanAttachedEventRecord.TRACE_REF_TYPE).append(" = ?");
+        sql.append(" ").append(SpanAttachedEventRecord.RELATED_TRACE_ID).append(" in (");
+        for (int i = 0; i < traceIds.size(); i++) {
+            if (i == 0) {
+                sql.append("?");
+            } else {
+                sql.append(",?");
+            }
+            parameters.add(traceIds.get(i));
+        }
+        sql.append(") and ").append(SpanAttachedEventRecord.TRACE_REF_TYPE).append(" = ?");
         parameters.add(type.value());
 
         sql.append(" order by ").append(SpanAttachedEventRecord.START_TIME_SECOND)
@@ -62,7 +69,7 @@ public class JDBCSpanAttachedEventQueryDAO implements ISpanAttachedEventQueryDAO
                     record.setEndTimeSecond(resultSet.getLong(SpanAttachedEventRecord.END_TIME_SECOND));
                     record.setEndTimeNanos(resultSet.getInt(SpanAttachedEventRecord.END_TIME_NANOS));
                     record.setTraceRefType(resultSet.getInt(SpanAttachedEventRecord.TRACE_REF_TYPE));
-                    record.setTraceId(resultSet.getString(SpanAttachedEventRecord.TRACE_ID));
+                    record.setRelatedTraceId(resultSet.getString(SpanAttachedEventRecord.RELATED_TRACE_ID));
                     record.setTraceSegmentId(resultSet.getString(SpanAttachedEventRecord.TRACE_SEGMENT_ID));
                     record.setTraceSpanId(resultSet.getString(SpanAttachedEventRecord.TRACE_SPAN_ID));
                     String dataBinaryBase64 = resultSet.getString(SpanAttachedEventRecord.DATA_BINARY);

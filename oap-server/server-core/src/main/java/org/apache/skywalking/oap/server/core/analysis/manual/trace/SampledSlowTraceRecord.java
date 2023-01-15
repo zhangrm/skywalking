@@ -20,24 +20,26 @@ package org.apache.skywalking.oap.server.core.analysis.manual.trace;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.skywalking.oap.server.core.Const;
 import org.apache.skywalking.oap.server.core.analysis.Stream;
 import org.apache.skywalking.oap.server.core.analysis.record.Record;
 import org.apache.skywalking.oap.server.core.analysis.topn.TopN;
 import org.apache.skywalking.oap.server.core.analysis.worker.RecordStreamProcessor;
 import org.apache.skywalking.oap.server.core.source.ScopeDeclaration;
+import org.apache.skywalking.oap.server.core.storage.StorageID;
 import org.apache.skywalking.oap.server.core.storage.annotation.BanyanDB;
 import org.apache.skywalking.oap.server.core.storage.annotation.Column;
 import org.apache.skywalking.oap.server.core.storage.type.Convert2Entity;
 import org.apache.skywalking.oap.server.core.storage.type.Convert2Storage;
 import org.apache.skywalking.oap.server.core.storage.type.StorageBuilder;
 
+import static org.apache.skywalking.oap.server.core.source.DefaultScopeDefine.PROCESS_RELATION_CATALOG_NAME;
 import static org.apache.skywalking.oap.server.core.source.DefaultScopeDefine.SAMPLED_SLOW_TRACE;
 
 @Setter
 @Getter
-@ScopeDeclaration(id = SAMPLED_SLOW_TRACE, name = "SampledTraceSlowRecord")
+@ScopeDeclaration(id = SAMPLED_SLOW_TRACE, name = "SampledTraceSlowRecord", catalog = PROCESS_RELATION_CATALOG_NAME)
 @Stream(name = SampledSlowTraceRecord.INDEX_NAME, scopeId = SAMPLED_SLOW_TRACE, builder = SampledSlowTraceRecord.Builder.class, processor = RecordStreamProcessor.class)
+@BanyanDB.TimestampColumn(SampledSlowTraceRecord.TIMESTAMP)
 public class SampledSlowTraceRecord extends Record {
 
     public static final String INDEX_NAME = "sampled_slow_trace_record";
@@ -46,22 +48,30 @@ public class SampledSlowTraceRecord extends Record {
     public static final String TRACE_ID = TopN.TRACE_ID;
     public static final String URI = TopN.STATEMENT;
     public static final String LATENCY = "latency";
+    public static final String TIMESTAMP = "timestamp";
 
     @Column(columnName = SCOPE)
     private int scope;
     @Column(columnName = ENTITY_ID)
+    @BanyanDB.SeriesID(index = 0)
     private String entityId;
-    @Column(columnName = TRACE_ID)
-    @BanyanDB.ShardingKey(index = 0)
+    @Column(columnName = TRACE_ID, storageOnly = true)
     private String traceId;
     @Column(columnName = URI, storageOnly = true)
     private String uri;
     @Column(columnName = LATENCY, dataType = Column.ValueDataType.SAMPLED_RECORD)
     private long latency;
+    @Setter
+    @Getter
+    @Column(columnName = TIMESTAMP)
+    private long timestamp;
 
     @Override
-    public String id() {
-        return getTimeBucket() + Const.ID_CONNECTOR + entityId + Const.ID_CONNECTOR + traceId;
+    public StorageID id() {
+        return new StorageID()
+            .append(TIME_BUCKET, getTimeBucket())
+            .append(ENTITY_ID, entityId)
+            .append(TRACE_ID, traceId);
     }
 
     public static class Builder implements StorageBuilder<SampledSlowTraceRecord> {
@@ -75,6 +85,7 @@ public class SampledSlowTraceRecord extends Record {
             record.setUri((String) converter.get(URI));
             record.setLatency(((Number) converter.get(LATENCY)).longValue());
             record.setTimeBucket(((Number) converter.get(TIME_BUCKET)).longValue());
+            record.setTimestamp(((Number) converter.get(TIMESTAMP)).longValue());
             return record;
         }
 
@@ -86,6 +97,7 @@ public class SampledSlowTraceRecord extends Record {
             converter.accept(URI, entity.getUri());
             converter.accept(LATENCY, entity.getLatency());
             converter.accept(TIME_BUCKET, entity.getTimeBucket());
+            converter.accept(TIMESTAMP, entity.getTimestamp());
         }
     }
 }

@@ -23,8 +23,10 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.skywalking.oap.server.core.UnexpectedException;
 import org.apache.skywalking.oap.server.core.analysis.manual.searchtag.Tag;
+import org.apache.skywalking.oap.server.core.analysis.record.LongText;
 import org.apache.skywalking.oap.server.core.analysis.record.Record;
 import org.apache.skywalking.oap.server.core.query.type.ContentType;
+import org.apache.skywalking.oap.server.core.storage.StorageID;
 import org.apache.skywalking.oap.server.core.storage.annotation.BanyanDB;
 import org.apache.skywalking.oap.server.core.storage.annotation.Column;
 import org.apache.skywalking.oap.server.core.storage.annotation.ElasticSearch;
@@ -50,13 +52,13 @@ public abstract class AbstractLogRecord extends Record {
     @Setter
     @Getter
     @Column(columnName = SERVICE_ID)
-    @BanyanDB.ShardingKey(index = 0)
+    @BanyanDB.SeriesID(index = 0)
     @SQLDatabase.AdditionalEntity(additionalTables = {ADDITIONAL_TAG_TABLE}, reserveOriginalColumns = true)
     private String serviceId;
     @Setter
     @Getter
     @Column(columnName = SERVICE_INSTANCE_ID, length = 512)
-    @BanyanDB.ShardingKey(index = 1)
+    @BanyanDB.SeriesID(index = 1)
     private String serviceInstanceId;
     @Setter
     @Getter
@@ -85,7 +87,7 @@ public abstract class AbstractLogRecord extends Record {
     @Getter
     @Column(columnName = CONTENT, length = 1_000_000)
     @ElasticSearch.MatchQuery(analyzer = ElasticSearch.MatchQuery.AnalyzerType.OAP_LOG_ANALYZER)
-    private String content;
+    private LongText content;
     @Setter
     @Getter
     @Column(columnName = TIMESTAMP)
@@ -105,7 +107,7 @@ public abstract class AbstractLogRecord extends Record {
     private List<String> tagsInString;
 
     @Override
-    public String id() {
+    public StorageID id() {
         throw new UnexpectedException("AbstractLogRecord doesn't provide id()");
     }
 
@@ -118,7 +120,7 @@ public abstract class AbstractLogRecord extends Record {
             record.setTraceSegmentId((String) converter.get(TRACE_SEGMENT_ID));
             record.setSpanId(((Number) converter.get(SPAN_ID)).intValue());
             record.setContentType(((Number) converter.get(CONTENT_TYPE)).intValue());
-            record.setContent((String) converter.get(CONTENT));
+            record.setContent(new LongText((String) converter.get(CONTENT)));
             record.setTimestamp(((Number) converter.get(TIMESTAMP)).longValue());
             record.setTagsRawData(converter.getBytes(TAGS_RAW_DATA));
             record.setTimeBucket(((Number) converter.get(TIME_BUCKET)).longValue());

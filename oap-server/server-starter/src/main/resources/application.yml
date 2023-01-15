@@ -102,9 +102,6 @@ core:
     storageSessionTimeout: ${SW_CORE_STORAGE_SESSION_TIMEOUT:70000}
     # The period of doing data persistence. Unit is second.Default value is 25s
     persistentPeriod: ${SW_CORE_PERSISTENT_PERIOD:25}
-    # Cache metrics data for 1 minute to reduce database queries, and if the OAP cluster changes within that minute,
-    # the metrics may not be accurate within that minute.
-    enableDatabaseSession: ${SW_CORE_ENABLE_DATABASE_SESSION:true}
     topNReportPeriod: ${SW_CORE_TOPN_REPORT_PERIOD:10} # top_n record worker report cycle, unit is minute
     # Extra model column are the column defined by in the codes, These columns of model are not required logically in aggregation or further query,
     # and it will cause more load for memory, network of OAP and storage.
@@ -131,7 +128,7 @@ core:
     # The number of threads used to prepare metrics data to the storage.
     prepareThreads: ${SW_CORE_PREPARE_THREADS:2}
     # Turn it on then automatically grouping endpoint by the given OpenAPI definitions.
-    enableEndpointNameGroupingByOpenapi: ${SW_CORE_ENABLE_ENDPOINT_NAME_GROUPING_BY_OPAENAPI:true}
+    enableEndpointNameGroupingByOpenapi: ${SW_CORE_ENABLE_ENDPOINT_NAME_GROUPING_BY_OPENAPI:true}
 storage:
   selector: ${SW_STORAGE:h2}
   elasticsearch:
@@ -154,14 +151,13 @@ storage:
     # If configured, this setting has the highest priority and overrides the generic settings.
     specificIndexSettings: ${SW_STORAGE_ES_SPECIFIC_INDEX_SETTINGS:""}
     # Super data set has been defined in the codes, such as trace segments.The following 3 config would be improve es performance when storage super size data in es.
-    superDatasetDayStep: ${SW_SUPERDATASET_STORAGE_DAY_STEP:-1} # Represent the number of days in the super size dataset record index, the default value is the same as dayStep when the value is less than 0
+    superDatasetDayStep: ${SW_STORAGE_ES_SUPER_DATASET_DAY_STEP:-1} # Represent the number of days in the super size dataset record index, the default value is the same as dayStep when the value is less than 0
     superDatasetIndexShardsFactor: ${SW_STORAGE_ES_SUPER_DATASET_INDEX_SHARDS_FACTOR:5} #  This factor provides more shards for the super data set, shards number = indexShardsNumber * superDatasetIndexShardsFactor. Also, this factor effects Zipkin traces.
     superDatasetIndexReplicasNumber: ${SW_STORAGE_ES_SUPER_DATASET_INDEX_REPLICAS_NUMBER:0} # Represent the replicas number in the super size dataset record index, the default value is 0.
     indexTemplateOrder: ${SW_STORAGE_ES_INDEX_TEMPLATE_ORDER:0} # the order of index template
     bulkActions: ${SW_STORAGE_ES_BULK_ACTIONS:5000} # Execute the async bulk record data every ${SW_STORAGE_ES_BULK_ACTIONS} requests
-    # flush the bulk every 10 seconds whatever the number of requests
-    # INT(flushInterval * 2/3) would be used for index refresh period.
-    flushInterval: ${SW_STORAGE_ES_FLUSH_INTERVAL:15}
+    # flush the bulk every 5 seconds whatever the number of requests
+    flushInterval: ${SW_STORAGE_ES_FLUSH_INTERVAL:5}
     concurrentRequests: ${SW_STORAGE_ES_CONCURRENT_REQUESTS:2} # the number of concurrent requests
     resultWindowMaxSize: ${SW_STORAGE_ES_QUERY_MAX_WINDOW_SIZE:10000}
     metadataQueryMaxSize: ${SW_STORAGE_ES_QUERY_MAX_SIZE:10000}
@@ -239,10 +235,11 @@ storage:
     superDatasetShardsFactor: ${SW_STORAGE_BANYANDB_SUPERDATASET_SHARDS_FACTOR:2}
     concurrentWriteThreads: ${SW_STORAGE_BANYANDB_CONCURRENT_WRITE_THREADS:15}
     profileTaskQueryMaxSize: ${SW_STORAGE_BANYANDB_PROFILE_TASK_QUERY_MAX_SIZE:200} # the max number of fetch task in a request
-    streamBlockInterval: ${SW_STORAGE_BANYANDB_STREAM_BLOCK_INTERVAL:4} # Unit is hour
-    streamSegmentInterval: ${SW_STORAGE_BANYANDB_STREAM_SEGMENT_INTERVAL:24} # Unit is hour
-    measureBlockInterval: ${SW_STORAGE_BANYANDB_MEASURE_BLOCK_INTERVAL:4} # Unit is hour
-    measureSegmentInterval: ${SW_STORAGE_BANYANDB_MEASURE_SEGMENT_INTERVAL:24} # Unit is hour
+    blockIntervalHours: ${SW_STORAGE_BANYANDB_BLOCK_INTERVAL_HOURS:24} # Unit is hour
+    segmentIntervalDays: ${SW_STORAGE_BANYANDB_SEGMENT_INTERVAL_DAYS:1} # Unit is day
+    superDatasetBlockIntervalHours: ${SW_STORAGE_BANYANDB_SUPER_DATASET_BLOCK_INTERVAL_HOURS:4} # Unit is hour
+    superDatasetSegmentIntervalDays: ${SW_STORAGE_BANYANDB_SUPER_DATASET_SEGMENT_INTERVAL_DAYS:1} # Unit is day
+    specificGroupSettings: ${SW_STORAGE_BANYANDB_SPECIFIC_GROUP_SETTINGS:""} # For example, {"group1": {"blockIntervalHours": 4, "segmentIntervalDays": 1}}
 
 agent-analyzer:
   selector: ${SW_AGENT_ANALYZER:default}
@@ -356,7 +353,7 @@ receiver-otel:
   selector: ${SW_OTEL_RECEIVER:default}
   default:
     enabledHandlers: ${SW_OTEL_RECEIVER_ENABLED_HANDLERS:"oc,otlp"}
-    enabledOtelRules: ${SW_OTEL_RECEIVER_ENABLED_OTEL_RULES:"apisix,k8s/*,istio-controlplane,vm,mysql/*,postgresql/*,oap"}
+    enabledOtelRules: ${SW_OTEL_RECEIVER_ENABLED_OTEL_RULES:"apisix,k8s/*,istio-controlplane,vm,mysql/*,postgresql/*,oap,aws-eks/*"}
 
 receiver-zipkin:
   selector: ${SW_RECEIVER_ZIPKIN:-}

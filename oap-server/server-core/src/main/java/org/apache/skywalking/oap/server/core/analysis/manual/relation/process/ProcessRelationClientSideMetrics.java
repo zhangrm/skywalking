@@ -21,7 +21,7 @@ package org.apache.skywalking.oap.server.core.analysis.manual.relation.process;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
-import org.apache.skywalking.oap.server.core.Const;
+import org.apache.skywalking.oap.server.core.ComponentLibraryCatalogUtil;
 import org.apache.skywalking.oap.server.core.analysis.MetricsExtension;
 import org.apache.skywalking.oap.server.core.analysis.Stream;
 import org.apache.skywalking.oap.server.core.analysis.metrics.Metrics;
@@ -29,6 +29,8 @@ import org.apache.skywalking.oap.server.core.analysis.worker.MetricsStreamProces
 import org.apache.skywalking.oap.server.core.remote.grpc.proto.RemoteData;
 import org.apache.skywalking.oap.server.core.source.DefaultScopeDefine;
 import org.apache.skywalking.oap.server.core.storage.ShardingAlgorithm;
+import org.apache.skywalking.oap.server.core.storage.StorageID;
+import org.apache.skywalking.oap.server.core.storage.annotation.BanyanDB;
 import org.apache.skywalking.oap.server.core.storage.annotation.Column;
 import org.apache.skywalking.oap.server.core.storage.annotation.SQLDatabase;
 import org.apache.skywalking.oap.server.core.storage.type.Convert2Entity;
@@ -36,10 +38,11 @@ import org.apache.skywalking.oap.server.core.storage.type.Convert2Storage;
 import org.apache.skywalking.oap.server.core.storage.type.StorageBuilder;
 
 @Stream(name = ProcessRelationClientSideMetrics.INDEX_NAME, scopeId = DefaultScopeDefine.PROCESS_RELATION,
-        builder = ProcessRelationClientSideMetrics.Builder.class, processor = MetricsStreamProcessor.class)
+    builder = ProcessRelationClientSideMetrics.Builder.class, processor = MetricsStreamProcessor.class)
 @MetricsExtension(supportDownSampling = false, supportUpdate = true, timeRelativeID = true)
 @EqualsAndHashCode(of = {
-        "entityId"
+    "entityId",
+    "component_id"
 }, callSuper = true)
 @SQLDatabase.Sharding(shardingAlgorithm = ShardingAlgorithm.NO_SHARDING)
 public class ProcessRelationClientSideMetrics extends Metrics {
@@ -65,23 +68,29 @@ public class ProcessRelationClientSideMetrics extends Metrics {
     @Setter
     @Getter
     @Column(columnName = ENTITY_ID, length = 512)
+    @BanyanDB.SeriesID(index = 0)
     private String entityId;
     @Setter
     @Getter
     @Column(columnName = COMPONENT_ID, storageOnly = true)
+    @BanyanDB.SeriesID(index = 1)
     private int componentId;
 
     @Override
-    protected String id0() {
-        return getTimeBucket() + Const.ID_CONNECTOR + entityId;
+    protected StorageID id0() {
+        return new StorageID()
+            .append(TIME_BUCKET, getTimeBucket())
+            .append(ENTITY_ID, getEntityId());
     }
 
     @Override
     public boolean combine(Metrics metrics) {
-        if (this.getTimeBucket() > metrics.getTimeBucket()) {
-            this.setTimeBucket(metrics.getTimeBucket());
+        final ProcessRelationClientSideMetrics processRelationClientSideMetrics = (ProcessRelationClientSideMetrics) metrics;
+        if (!ComponentLibraryCatalogUtil.get().compare(this.componentId, processRelationClientSideMetrics.getComponentId())) {
+            this.setComponentId(processRelationClientSideMetrics.getComponentId());
+            return true;
         }
-        return true;
+        return false;
     }
 
     @Override

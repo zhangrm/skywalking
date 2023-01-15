@@ -21,6 +21,7 @@ package org.apache.skywalking.oap.server.core.analysis.manual.process;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import java.util.Map;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
@@ -32,14 +33,14 @@ import org.apache.skywalking.oap.server.core.analysis.metrics.Metrics;
 import org.apache.skywalking.oap.server.core.analysis.worker.MetricsStreamProcessor;
 import org.apache.skywalking.oap.server.core.remote.grpc.proto.RemoteData;
 import org.apache.skywalking.oap.server.core.storage.ShardingAlgorithm;
+import org.apache.skywalking.oap.server.core.storage.StorageID;
+import org.apache.skywalking.oap.server.core.storage.annotation.BanyanDB;
 import org.apache.skywalking.oap.server.core.storage.annotation.Column;
 import org.apache.skywalking.oap.server.core.storage.annotation.SQLDatabase;
 import org.apache.skywalking.oap.server.core.storage.type.Convert2Entity;
 import org.apache.skywalking.oap.server.core.storage.type.Convert2Storage;
 import org.apache.skywalking.oap.server.core.storage.type.StorageBuilder;
 import org.apache.skywalking.oap.server.library.util.StringUtil;
-
-import java.util.Map;
 
 import static org.apache.skywalking.oap.server.core.source.DefaultScopeDefine.PROCESS;
 
@@ -51,6 +52,7 @@ import static org.apache.skywalking.oap.server.core.source.DefaultScopeDefine.PR
     "name",
 })
 @SQLDatabase.Sharding(shardingAlgorithm = ShardingAlgorithm.NO_SHARDING)
+@BanyanDB.StoreIDAsTag
 public class ProcessTraffic extends Metrics {
     public static final String INDEX_NAME = "process_traffic";
     public static final String SERVICE_ID = "service_id";
@@ -73,6 +75,7 @@ public class ProcessTraffic extends Metrics {
     @Setter
     @Getter
     @Column(columnName = INSTANCE_ID, length = 600)
+    @BanyanDB.SeriesID(index = 0)
     private String instanceId;
 
     @Getter
@@ -82,6 +85,7 @@ public class ProcessTraffic extends Metrics {
     @Setter
     @Getter
     @Column(columnName = NAME, length = 500)
+    @BanyanDB.SeriesID(index = 1)
     private String name;
 
     @Setter
@@ -183,11 +187,14 @@ public class ProcessTraffic extends Metrics {
     }
 
     @Override
-    protected String id0() {
-        if (processId != null) {
-            return processId;
+    protected StorageID id0() {
+        if (processId == null) {
+            processId = IDManager.ProcessID.buildId(instanceId, name);
         }
-        return IDManager.ProcessID.buildId(instanceId, name);
+        return new StorageID().appendMutant(new String[] {
+            INSTANCE_ID,
+            NAME
+        }, processId);
     }
 
     public static class Builder implements StorageBuilder<ProcessTraffic> {

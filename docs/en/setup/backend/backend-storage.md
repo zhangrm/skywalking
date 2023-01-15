@@ -12,7 +12,7 @@ Natively supported storage:
 - OpenSearch
 - ElasticSearch 6, 7, 8
 - MySQL
-- MySQL-Sharding(Shardingsphere-Proxy 5.1.2)
+- MySQL-Sharding(Shardingsphere-Proxy 5.3.1)
 - TiDB
 - PostgreSQL
 - BanyanDB
@@ -40,6 +40,11 @@ storage:
 OpenSearch is a fork from ElasticSearch 7.11 but licensed in Apache 2.0.
 OpenSearch storage shares the same configurations as ElasticSearch.
 In order to activate OpenSearch as storage, set the storage provider to **elasticsearch**.
+
+We support and tested the following versions of OpenSearch:
+
+- 1.1.0, 1.3.6
+- 2.4.0
 
 ## ElasticSearch
 
@@ -84,7 +89,7 @@ storage:
     # If configured, this setting has the highest priority and overrides the generic settings.
     specificIndexSettings: ${SW_STORAGE_ES_SPECIFIC_INDEX_SETTINGS:""}
     # Super data set has been defined in the codes, such as trace segments.The following 3 config would be improve es performance when storage super size data in es.
-    superDatasetDayStep: ${SW_SUPERDATASET_STORAGE_DAY_STEP:-1} # Represent the number of days in the super size dataset record index, the default value is the same as dayStep when the value is less than 0
+    superDatasetDayStep: ${SW_STORAGE_ES_SUPER_DATASET_DAY_STEP:-1} # Represent the number of days in the super size dataset record index, the default value is the same as dayStep when the value is less than 0
     superDatasetIndexShardsFactor: ${SW_STORAGE_ES_SUPER_DATASET_INDEX_SHARDS_FACTOR:5} #  This factor provides more shards for the super data set, shards number = indexShardsNumber * superDatasetIndexShardsFactor. Also, this factor effects Zipkin traces.
     superDatasetIndexReplicasNumber: ${SW_STORAGE_ES_SUPER_DATASET_INDEX_REPLICAS_NUMBER:0} # Represent the replicas number in the super size dataset record index, the default value is 0.
     indexTemplateOrder: ${SW_STORAGE_ES_INDEX_TEMPLATE_ORDER:0} # the order of index template
@@ -161,19 +166,19 @@ The following settings control the number of shards and replicas for new and exi
 storage:
   elasticsearch:
     # ......
-    indexShardsNumber: ${SW_STORAGE_ES_INDEX_SHARDS_NUMBER:1} 
-    indexReplicasNumber: ${SW_STORAGE_ES_INDEX_REPLICAS_NUMBER:1} 
+    indexShardsNumber: ${SW_STORAGE_ES_INDEX_SHARDS_NUMBER:1}
+    indexReplicasNumber: ${SW_STORAGE_ES_INDEX_REPLICAS_NUMBER:1}
     specificIndexSettings: ${SW_STORAGE_ES_SPECIFIC_INDEX_SETTINGS:""}
-    superDatasetIndexShardsFactor: ${SW_STORAGE_ES_SUPER_DATASET_INDEX_SHARDS_FACTOR:5} 
+    superDatasetIndexShardsFactor: ${SW_STORAGE_ES_SUPER_DATASET_INDEX_SHARDS_FACTOR:5}
     superDatasetIndexReplicasNumber: ${SW_STORAGE_ES_SUPER_DATASET_INDEX_REPLICAS_NUMBER:0}
 ```
 The following table shows the relationship between those config items and Elasticsearch `index number_of_shards/number_of_replicas`.
-And also you can [specify the settings for each index individually.](#specify-settings-for-each-elasticsearch-index-individually) 
+And also you can [specify the settings for each index individually.](#specify-settings-for-each-elasticsearch-index-individually)
 
-| index                                | number_of_shards | number_of_replicas   | 
+| index                                | number_of_shards | number_of_replicas   |
 |--------------------------------------|------------------|----------------------|
-| sw_ui_template                       | indexShardsNumber | indexReplicasNumber  | 
-| sw_metrics-all-`${day-format}`       | indexShardsNumber | indexReplicasNumber  | 
+| sw_ui_template                       | indexShardsNumber | indexReplicasNumber  |
+| sw_metrics-all-`${day-format}`       | indexShardsNumber | indexReplicasNumber  |
 | sw_log-`${day-format}`               | indexShardsNumber * superDatasetIndexShardsFactor | superDatasetIndexReplicasNumber  |
 | sw_segment-`${day-format}`           | indexShardsNumber * superDatasetIndexShardsFactor | superDatasetIndexReplicasNumber  |
 | sw_browser_error_log-`${day-format}` | indexShardsNumber * superDatasetIndexShardsFactor | superDatasetIndexReplicasNumber  |
@@ -200,7 +205,7 @@ Supported settings:
 - number_of_shards
 - number_of_replicas
 
-**NOTE:** These settings have the highest priority and will override the existing 
+**NOTE:** These settings have the highest priority and will override the existing
 generic settings mentioned in [index settings doc](#index-settings).
 
 The settings are in `JSON` format. The index name here is logic entity name, which should exclude the `${SW_NAMESPACE}` which is `sw` by default, e.g.
@@ -273,7 +278,7 @@ MySQL-Sharding plugin provides the MySQL database sharding and table sharding, t
 leverage [Shardingsphere-Proxy](https://shardingsphere.apache.org/document/current/en/overview/#shardingsphere-proxy)
 to manage the JDBC between OAP and multi-database instances, and according to the sharding rules do routing to the database and table sharding.
 
-Tested Shardingsphere-Proxy 5.1.2 version, and MySQL Client driver 8.0.13 version is currently available.
+Tested Shardingsphere-Proxy 5.3.1 version, and MySQL Client driver 8.0.13 version is currently available.
 Activate MySQL and Shardingsphere-Proxy as storage, and set storage provider to **mysql-sharding**.
 
 **NOTE:** MySQL driver is NOT allowed in Apache official distribution and source codes.

@@ -31,7 +31,7 @@ import org.apache.skywalking.oap.server.core.storage.annotation.BanyanDB;
 public class BanyanDBExtension {
     /**
      * Sharding key is used to group time series data per metric of one entity. See {@link
-     * BanyanDB.ShardingKey#index()}.
+     * BanyanDB.SeriesID#index()}.
      *
      * @since 9.1.0 moved into BanyanDBExtension
      * @since 9.0.0 added into {@link ModelColumn}
@@ -62,6 +62,12 @@ public class BanyanDBExtension {
      */
     @Getter
     private final BanyanDB.IndexRule.IndexType indexType;
+
+    /**
+     *  A column belong to a measure's field.
+     */
+    @Getter
+    private final boolean isMeasureField;
 
     /**
      * @return true if this column is a part of sharding key

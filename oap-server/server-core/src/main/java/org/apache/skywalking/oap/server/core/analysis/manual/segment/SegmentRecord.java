@@ -27,6 +27,7 @@ import org.apache.skywalking.oap.server.core.analysis.record.Record;
 import org.apache.skywalking.oap.server.core.analysis.worker.RecordStreamProcessor;
 import org.apache.skywalking.oap.server.core.source.DefaultScopeDefine;
 import org.apache.skywalking.oap.server.core.storage.ShardingAlgorithm;
+import org.apache.skywalking.oap.server.core.storage.StorageID;
 import org.apache.skywalking.oap.server.core.storage.annotation.BanyanDB;
 import org.apache.skywalking.oap.server.core.storage.annotation.Column;
 import org.apache.skywalking.oap.server.core.storage.annotation.SQLDatabase;
@@ -42,6 +43,7 @@ import static org.apache.skywalking.oap.server.core.analysis.record.Record.TIME_
 @Stream(name = SegmentRecord.INDEX_NAME, scopeId = DefaultScopeDefine.SEGMENT, builder = SegmentRecord.Builder.class, processor = RecordStreamProcessor.class)
 @SQLDatabase.ExtraColumn4AdditionalEntity(additionalTable = SegmentRecord.ADDITIONAL_TAG_TABLE, parentColumn = TIME_BUCKET)
 @SQLDatabase.Sharding(shardingAlgorithm = ShardingAlgorithm.TIME_SEC_RANGE_SHARDING_ALGORITHM, dataSourceShardingColumn = SERVICE_ID, tableShardingColumn = TIME_BUCKET)
+@BanyanDB.TimestampColumn(SegmentRecord.START_TIME)
 public class SegmentRecord extends Record {
 
     public static final String INDEX_NAME = "segment";
@@ -69,13 +71,13 @@ public class SegmentRecord extends Record {
     @Setter
     @Getter
     @Column(columnName = SERVICE_ID)
-    @BanyanDB.ShardingKey(index = 0)
+    @BanyanDB.SeriesID(index = 0)
     @SQLDatabase.AdditionalEntity(additionalTables = {ADDITIONAL_TAG_TABLE}, reserveOriginalColumns = true)
     private String serviceId;
     @Setter
     @Getter
     @Column(columnName = SERVICE_INSTANCE_ID, length = 512)
-    @BanyanDB.ShardingKey(index = 1)
+    @BanyanDB.SeriesID(index = 1)
     private String serviceInstanceId;
     @Setter
     @Getter
@@ -92,7 +94,7 @@ public class SegmentRecord extends Record {
     @Setter
     @Getter
     @Column(columnName = IS_ERROR)
-    @BanyanDB.ShardingKey(index = 2)
+    @BanyanDB.SeriesID(index = 2)
     private int isError;
     @Setter
     @Getter
@@ -105,8 +107,8 @@ public class SegmentRecord extends Record {
     private List<String> tags;
 
     @Override
-    public String id() {
-        return segmentId;
+    public StorageID id() {
+        return new StorageID().append(SEGMENT_ID, segmentId);
     }
 
     public static class Builder implements StorageBuilder<SegmentRecord> {
